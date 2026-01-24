@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+  <head>
+    <title>AdExpress CRM</title>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="config.js"></script>
+  </head>
+  <body>
+    <!-- Phone Search Section -->
+    <div id="search-container">
+      <input
+        type="text"
+        id="phone-search"
+        placeholder="Enter phone number..."
+      />
+      <button id="search-btn">🔍 Search</button>
+    </div>
+
+    <div id="urgency-container" style="display: none">
+      <input type="text" id="urgency-note" placeholder="optional note.." />
+      <button id="urgency-btn">Urgent Alarm</button>
+    </div>
+
+    <div id="status"></div>
+    
+    <!-- Existing Records Viewer -->
+    <div id="records-viewer" style="display: none;">
+      <div id="viewer-header">
+        <h3>Existing Records Found</h3>
+        <button id="close-viewer-btn">&times;</button>
+      </div>
+      <div id="viewer-content"></div>
+    </div>
+    
+    <div id="data-container"></div>
+    <div id="footer-container" style="display: none">
+      <button id="submit-btn">Submit New Entry</button>
+    </div>
+
+    <script src="panel.js"></script>
+  </body>
+</html>

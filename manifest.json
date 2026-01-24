@@ -1,0 +1,60 @@
+{
+    "manifest_version": 3,
+    "name": "Customer Entry",
+    "version": "7.0",
+    "description": "with latests number scraper in WhatsApp Web.",
+    "permissions": [
+        "identity",
+        "storage",
+        "scripting",
+        "tabs"
+    ],
+    "icons": {
+        "16": "icons/icon16.png",
+        "32": "icons/icon32.png",
+        "48": "icons/icon48.png"
+    },
+    "host_permissions": [
+        "https://sheets.googleapis.com/",
+        "https://people.googleapis.com/",
+        "https://web.whatsapp.com/*"
+    ],
+    "oauth2": {
+        "client_id": "851591119047-tdtp5jna1nmc7b26fh1rpuag45led0f9.apps.googleusercontent.com",
+        "scopes": [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/contacts"
+        ]
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_title": "WhatsApp CRM"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://web.whatsapp.com/"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "css": [
+                "style.css"
+            ]
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "panel.html",
+                "config.js",
+                "icons/icon48.png"
+            ],
+            "matches": [
+                "https://web.whatsapp.com/*"
+            ]
+        }
+    ]
+}

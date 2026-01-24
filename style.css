@@ -1,0 +1,383 @@
+/* --- Floating Action Button (Unchanged) --- */
+#crm-floating-btn {
+  position: fixed;
+  top: 13px;
+  left: 290px;
+  width: 40px;
+  height: 40px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+#crm-floating-btn:hover {
+  background-color: #008069;
+}
+#crm-floating-btn img {
+  width: 32px;
+  height: 32px;
+}
+
+/* --- NEW: Main Draggable Container --- */
+#crm-container {
+  position: fixed;
+  width: 420px;
+  min-width: 320px;
+  max-width: 600px;
+  height: 96vh;
+  min-height: 400px;
+  max-height: 1450px;
+  z-index: 99999;
+  background-color: #0d1418;
+  border: 1px solid #3d4a54;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  resize: both; /* Enable resizing */
+}
+
+/* --- NEW: Draggable Header Bar --- */
+#crm-drag-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #1f2c33;
+  padding: 10px 15px;
+  border-bottom: 1px solid #2a2f32;
+  cursor: move;
+  user-select: none; /* Prevents text selection while dragging */
+  flex-shrink: 0; /* Prevents the header from shrinking */
+}
+
+#crm-drag-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e1e3e5;
+}
+
+#crm-header-close-btn {
+  background: none;
+  border: none;
+  color: #aebac1;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 5px;
+}
+#crm-header-close-btn:hover {
+  color: #ffffff;
+}
+
+/* --- UPDATED: Iframe styles --- */
+#sheet-viewer-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  flex-grow: 1; /* Allows iframe to fill the remaining space */
+}
+
+/* === Styles for Content INSIDE the Iframe === */
+
+/* --- Global Styles --- */
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  margin: 0;
+  background-color: #0d1418;
+  color: #e1e3e5;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Ensure body takes full iframe height */
+}
+
+/* --- NEW: Urgency Feature Styles --- */
+
+#urgency-container {
+  padding: 10px 15px;
+  background-color: #1f2c33; /* Match the footer color */
+  display: flex;
+  gap: 10px;
+  align-items: stretch; /* Make items the same height */
+  border-bottom: 1px solid #2a2f32;
+}
+
+#urgency-note {
+  flex-grow: 1; /* Allow the text box to fill available space */
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #3a3f42;
+  color: #e1e3e5;
+  background-color: #1f2c33;
+  font-size: 14px;
+}
+
+#urgency-btn {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  background-color: #d9534f; /* A distinct red color for urgency */
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0; /* Prevent the button from shrinking */
+  transition: background-color 0.2s;
+}
+
+#urgency-btn:hover {
+  background-color: #c9302c;
+}
+
+/* --- NEW: Phone Search Container Styles --- */
+#search-container {
+  padding: 12px 15px;
+  background-color: #1f2c33;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #2a2f32;
+}
+
+#phone-search {
+  flex-grow: 1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #3a3f42;
+  color: #e1e3e5;
+  background-color: #0d1418;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#phone-search:focus {
+  border-color: #00a884;
+}
+
+#phone-search::placeholder {
+  color: #8696a0;
+}
+
+#search-btn {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background-color: #00a884;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+
+#search-btn:hover {
+  background-color: #008f72;
+}
+
+#search-btn:disabled {
+  background-color: #3a3f42;
+  cursor: not-allowed;
+}
+
+/* --- Notification Bar --- */
+#status {
+  padding: 12px 15px;
+  background-color: #1f2c33;
+  color: #aebac1;
+  font-weight: 500;
+  text-align: center;
+  display: none; /* Hidden by default */
+  flex-shrink: 0;
+}
+#status.notification-success {
+  background-color: #1a453d;
+  color: #55c7ad;
+}
+
+/* --- Existing Records Viewer --- */
+#records-viewer {
+  flex-grow: 1;
+  overflow-y: auto;
+  background-color: #0d1418;
+  display: flex;
+  flex-direction: column;
+}
+
+#viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background-color: #1f2c33;
+  border-bottom: 1px solid #2a2f32;
+  flex-shrink: 0;
+}
+
+#viewer-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #00a884;
+}
+
+#close-viewer-btn {
+  background: none;
+  border: none;
+  color: #aebac1;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+#close-viewer-btn:hover {
+  color: #ffffff;
+}
+
+#viewer-content {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 15px;
+}
+
+.viewer-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.viewer-item {
+  padding: 10px;
+  background-color: #1f2c33;
+  border-radius: 6px;
+  border: 1px solid #2a2f32;
+}
+
+.viewer-item strong {
+  display: block;
+  color: #8696a0;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.viewer-item span {
+  display: block;
+  color: #e1e3e5;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+/* --- Data Container (scrolling) --- */
+#data-container {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+/* --- Form Fields & Other Styles (largely unchanged) --- */
+.details-view {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.detail-item {
+  background-color: #1f2c33;
+  border: 1px solid #2a2f32;
+  border-radius: 8px;
+  padding: 12px;
+}
+.detail-item strong {
+  font-weight: 600;
+  font-size: 13px;
+  color: #00a884;
+  display: block;
+  margin-bottom: 6px;
+}
+.detail-item p,
+.detail-item input,
+.detail-item select {
+  margin: 0;
+  font-size: 15px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #3a3f42;
+  color: #e1e3e5;
+  background-color: #2a2f32;
+  width: 100%;
+  box-sizing: border-box;
+}
+.detail-item input:focus,
+.detail-item select:focus {
+  background-color: #3a3f42;
+  border-color: #00a884;
+  outline: none;
+}
+.detail-item.status-display {
+  background-color: #2c3135;
+  border-left: 3px solid #00a884;
+}
+.detail-item.status-display p {
+  font-weight: bold;
+  color: #e1e3e5;
+  cursor: not-allowed;
+}
+.validation-wrapper {
+  position: relative;
+}
+
+/* Add this new rule to style.css */
+.mandatory-indicator {
+  font-size: 11px;
+  font-weight: bold;
+  color: #ffb02e; /* A muted orange/yellow color */
+  background-color: rgba(255, 176, 46, 0.15); /* A light background */
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+  vertical-align: middle; /* Aligns it nicely with the header text */
+}
+
+.validation-icon {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  font-size: 16px;
+}
+#footer-container {
+  padding: 15px;
+  background-color: #1f2c33;
+  border-top: 1px solid #2a2f32;
+  text-align: center;
+  flex-shrink: 0;
+}
+#submit-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  background-color: #00a884;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+#submit-btn:hover {
+  background-color: #008069;
+}
+#submit-btn:disabled {
+  background-color: #3a3f42;
+  color: #8d9499;
+  cursor: not-allowed;
+}
