@@ -12,7 +12,7 @@ const CONFIG = {
     // For Opera/Edge: Create a "Web Application" OAuth client in Google Cloud Console
     // Add authorized redirect URI: https://<your-extension-id>.chromiumapp.org/
     // Get your extension ID from opera://extensions (after loading unpacked)
-    OAUTH_CLIENT_ID: '851591119047-tdtp5jna1nmc7b26fh1rpuag45led0f9.apps.googleusercontent.com',
+    OAUTH_CLIENT_ID: '851591119047-t3tbtno5v1498bbmvnubui852sj0kr5c.apps.googleusercontent.com',
 
     // Column ranges
     get PHONE_COLUMN_RANGE() {

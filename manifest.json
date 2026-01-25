@@ -20,7 +20,7 @@
         "https://web.whatsapp.com/*"
     ],
     "oauth2": {
-        "client_id": "851591119047-tdtp5jna1nmc7b26fh1rpuag45led0f9.apps.googleusercontent.com",
+        "client_id": "851591119047-t3tbtno5v1498bbmvnubui852sj0kr5c.apps.googleusercontent.com",
         "scopes": [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/contacts"
