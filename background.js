@@ -12,17 +12,96 @@ const PHONE_COLUMN_RANGE = CONFIG.PHONE_COLUMN_RANGE;
 // --- CACHING ---
 let cachedHeaders = null;
 let cachedPhoneColumn = null;
+let cachedAccessToken = null;
+let tokenExpiry = null;
 
-// --- AUTHENTICATION HELPER ---
+// --- OAuth Configuration for launchWebAuthFlow ---
+// You need to create a new OAuth client ID in Google Cloud Console:
+// 1. Go to https://console.cloud.google.com/apis/credentials
+// 2. Create OAuth client ID -> Web Application
+// 3. Add Authorized redirect URI: https://<extension-id>.chromiumapp.org/
+// For Opera, use the Opera extension ID instead of Chrome extension ID
+const OAUTH_CLIENT_ID = CONFIG.OAUTH_CLIENT_ID || '851591119047-tdtp5jna1nmc7b26fh1rpuag45led0f9.apps.googleusercontent.com';
+const OAUTH_SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/contacts'
+].join(' ');
+
+// --- AUTHENTICATION HELPER (Cross-browser compatible) ---
 function getAuthToken() {
-    return new Promise((resolve, reject) => {
-        chrome.identity.getAuthToken({ interactive: true }, (token) => {
-            if (chrome.runtime.lastError || !token) {
-                reject(new Error(chrome.runtime.lastError ? chrome.runtime.lastError.message : 'Authentication failed.'));
-            } else {
-                resolve(token);
+    return new Promise(async (resolve, reject) => {
+        // Check if we have a valid cached token
+        if (cachedAccessToken && tokenExpiry && Date.now() < tokenExpiry) {
+            return resolve(cachedAccessToken);
+        }
+
+        // Try Chrome's native getAuthToken first (works only in Chrome with signed-in Google account)
+        if (chrome.identity.getAuthToken) {
+            try {
+                const token = await new Promise((res, rej) => {
+                    chrome.identity.getAuthToken({ interactive: true }, (token) => {
+                        if (chrome.runtime.lastError || !token) {
+                            rej(new Error(chrome.runtime.lastError ? chrome.runtime.lastError.message : 'Chrome auth failed'));
+                        } else {
+                            res(token);
+                        }
+                    });
+                });
+                cachedAccessToken = token;
+                tokenExpiry = Date.now() + (3600 * 1000); // 1 hour
+                return resolve(token);
+            } catch (e) {
+                console.log('[Auth] Chrome getAuthToken failed, falling back to launchWebAuthFlow:', e.message);
             }
-        });
+        }
+
+        // Fallback: Use launchWebAuthFlow (works in Opera, Edge, and all Chromium browsers)
+        try {
+            const token = await getAuthTokenViaWebAuthFlow();
+            cachedAccessToken = token;
+            tokenExpiry = Date.now() + (3600 * 1000); // 1 hour
+            resolve(token);
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
+// Cross-browser OAuth using launchWebAuthFlow
+function getAuthTokenViaWebAuthFlow() {
+    return new Promise((resolve, reject) => {
+        const redirectUri = chrome.identity.getRedirectURL();
+        console.log('[Auth] Redirect URI:', redirectUri);
+
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+            `client_id=${encodeURIComponent(OAUTH_CLIENT_ID)}` +
+            `&response_type=token` +
+            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+            `&scope=${encodeURIComponent(OAUTH_SCOPES)}` +
+            `&prompt=consent`;
+
+        chrome.identity.launchWebAuthFlow(
+            { url: authUrl, interactive: true },
+            (responseUrl) => {
+                if (chrome.runtime.lastError) {
+                    return reject(new Error(chrome.runtime.lastError.message));
+                }
+                if (!responseUrl) {
+                    return reject(new Error('No response URL received'));
+                }
+
+                // Extract access token from URL fragment
+                const url = new URL(responseUrl);
+                const params = new URLSearchParams(url.hash.substring(1));
+                const accessToken = params.get('access_token');
+
+                if (accessToken) {
+                    resolve(accessToken);
+                } else {
+                    reject(new Error('No access token in response'));
+                }
+            }
+        );
     });
 }
 

@@ -8,6 +8,12 @@ const CONFIG = {
     SHEET_NAME: '🔵Team Blue🔵',
     FOLLOWUP_SHEET_NAME: 'Delivery_Followups',
 
+    // === OAuth Configuration ===
+    // For Opera/Edge: Create a "Web Application" OAuth client in Google Cloud Console
+    // Add authorized redirect URI: https://<your-extension-id>.chromiumapp.org/
+    // Get your extension ID from opera://extensions (after loading unpacked)
+    OAUTH_CLIENT_ID: '851591119047-tdtp5jna1nmc7b26fh1rpuag45led0f9.apps.googleusercontent.com',
+
     // Column ranges
     get PHONE_COLUMN_RANGE() {
         return `'${this.SHEET_NAME}'!M:M`;
