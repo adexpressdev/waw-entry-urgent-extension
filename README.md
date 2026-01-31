@@ -1,7 +1,8 @@
-# Customer Entry - WhatsApp CRM Chrome Extension
+# AdExpress CRM - WhatsApp Chrome Extension
 
-**Version:** 7.0  
-**Description:** A Chrome extension that integrates WhatsApp Web with Google Sheets for customer relationship management, featuring automatic phone number detection, contact data management, and Google Contacts integration.
+**Version:** 7.2  
+**Last Updated:** January 2026  
+**Description:** A Chrome/Opera extension that integrates WhatsApp Web with Google Sheets for customer relationship management, featuring manual phone search, contact data management, and Google Contacts integration.
 
 ---
 
@@ -9,24 +10,25 @@
 
 - [Overview](#overview)
 - [Features](#features)
-- [Architecture](#architecture)
+- [Project Architecture](#project-architecture)
 - [File Structure](#file-structure)
+- [Authentication Flow](#authentication-flow)
 - [Component Details](#component-details)
 - [Data Flow](#data-flow)
-- [Google Sheets Integration](#google-sheets-integration)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Permissions](#permissions)
+- [Usage Guide](#usage-guide)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
 ## 🎯 Overview
 
-This Chrome extension provides a CRM (Customer Relationship Management) overlay for WhatsApp Web. It allows users to:
+This Chrome/Opera extension provides a CRM (Customer Relationship Management) overlay for WhatsApp Web. It allows users to:
 
-- Automatically detect phone numbers from active WhatsApp chats
-- Look up and display existing customer data from a Google Sheet
-- Create new customer entries or update existing ones
+- Search for customers by phone number (manual entry)
+- View existing customer records from a Google Sheet
+- Create new customer entries with form validation
 - Save customers to Google Contacts automatically
 - Add follow-up reminders for delivery management
 - Mark entries as urgent with optional notes
@@ -35,20 +37,23 @@ This Chrome extension provides a CRM (Customer Relationship Management) overlay 
 
 ## ✨ Features
 
-| Feature                         | Description                                                                                 |
-| ------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Phone Number Extraction**     | Multi-strategy extraction from WhatsApp DOM (data attributes, headers, URL, contact drawer) |
-| **Google Sheets Integration**   | Read/write customer data to a configured Google Spreadsheet                                 |
-| **Google Contacts Sync**        | Automatically creates contacts in Google Contacts with duplicate prevention                 |
-| **Draggable Panel**             | Floating CRM panel that can be repositioned and remembers its position                      |
-| **Form Validation**             | Double-entry validation for critical fields (address, phone confirmation)                   |
-| **Urgency/Follow-up System**    | Mark entries as urgent and add them to a follow-up sheet                                    |
-| **Mandatory Field Enforcement** | Configurable mandatory fields with visual indicators                                        |
-| **Real-time Chat Detection**    | Automatically updates when switching between WhatsApp conversations                         |
+| Feature                         | Description                                                            |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| **Manual Phone Search**         | Enter phone number to search existing records (last 6 digits matching) |
+| **Multiple Records View**       | Display all matching records in a scrollable viewer                    |
+| **Google Sheets Integration**   | Read/write customer data to a configured Google Spreadsheet            |
+| **Google Contacts Sync**        | Automatically creates contacts with duplicate prevention               |
+| **Draggable & Resizable Panel** | Floating CRM panel that can be repositioned and resized                |
+| **Form Validation**             | Double-entry validation for address fields, mandatory phone number     |
+| **Smart Row Insertion**         | Inserts at the last row with data (not at sheet end)                   |
+| **Toast Notifications**         | Visual feedback for success/error states                               |
+| **Enter Key Navigation**        | Press Enter to move between fields, auto-opens dropdowns               |
+| **Persistent OAuth**            | Refresh tokens for long-term authentication (no repeated logins)       |
+| **Cross-Browser Support**       | Works on Chrome, Opera, Edge, and Brave                                |
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Project Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -57,46 +62,52 @@ This Chrome extension provides a CRM (Customer Relationship Management) overlay 
 │                                                                      │
 │  ┌──────────────────┐     ┌────────────────────────────────────┐   │
 │  │  Floating Button │────▶│         CRM Container              │   │
-│  │  (icon48.png)    │     │  ┌──────────────────────────────┐  │   │
-│  └──────────────────┘     │  │     Drag Header              │  │   │
+│  │  🍓 (strawberry) │     │  ┌──────────────────────────────┐  │   │
+│  └──────────────────┘     │  │     Drag Header (movable)    │  │   │
+│                           │  ├──────────────────────────────┤  │   │
+│                           │  │   iframe (panel.html)        │  │   │
+│                           │  │   ├── Search Input           │  │   │
+│                           │  │   ├── Records Viewer         │  │   │
+│                           │  │   ├── Entry Form             │  │   │
+│                           │  │   └── Toast Notifications    │  │   │
 │                           │  └──────────────────────────────┘  │   │
-│  ┌──────────────────────┐ │  ┌──────────────────────────────┐  │   │
-│  │ phone_extractor.js   │ │  │   iframe (panel.html)        │  │   │
-│  │  - 8 extraction      │ │  │   ├── config.js              │  │   │
-│  │    strategies        │ │  │   └── panel.js               │  │   │
-│  │  - extractPhoneNum() │ │  │       - Form rendering       │  │   │
-│  └──────────────────────┘ │  │       - Data submission      │  │   │
-│            ▲              │  └──────────────────────────────┘  │   │
-│            │              └────────────────────────────────────┘   │
-│  ┌──────────────────────┐                                          │
+│  ┌──────────────────────┐ └────────────────────────────────────┘   │
 │  │    content.js        │                                          │
 │  │  - UI injection      │                                          │
-│  │  - Event observers   │                                          │
+│  │  - Drag/resize logic │                                          │
 │  │  - Panel management  │                                          │
 │  └──────────────────────┘                                          │
 └─────────────────────────────────────────────────────────────────────┘
                                       │
+                          chrome.runtime.sendMessage
+                                      │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     background.js (Service Worker)                   │
-│  ┌────────────────────┐  ┌─────────────────────────────────────┐   │
-│  │    config.js       │  │  - OAuth2 Authentication            │   │
-│  │  (importScripts)   │──│  - Google Sheets API calls          │   │
-│  │                    │  │  - Google People API calls          │   │
-│  └────────────────────┘  │  - Message routing                  │   │
-│                          │  - Caching (headers, phone column)  │   │
-│                          └─────────────────────────────────────┘   │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │  Authentication (OAuth 2.0 with PKCE)                          │ │
+│  │  ├── Access Token (1 hour)                                     │ │
+│  │  ├── Refresh Token (months, silent refresh)                    │ │
+│  │  └── Persistent Storage (chrome.storage.local)                 │ │
+│  ├────────────────────────────────────────────────────────────────┤ │
+│  │  API Handlers                                                  │ │
+│  │  ├── getHeadersRequest    → Fetch sheet column headers         │ │
+│  │  ├── fetchContactData     → Search & return matching records   │ │
+│  │  ├── saveNewEntry         → Insert row at correct position     │ │
+│  │  ├── saveFollowUp         → Add to follow-up sheet             │ │
+│  │  └── createGoogleContact  → Add to Google Contacts             │ │
+│  └────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Google APIs                                   │
-│  ┌─────────────────────┐    ┌─────────────────────────────────┐    │
-│  │  Google Sheets API  │    │     Google People API           │    │
-│  │  - Read headers     │    │     - Search contacts           │    │
-│  │  - Search phone col │    │     - Create new contacts       │    │
-│  │  - Append/Update    │    │                                 │    │
-│  └─────────────────────┘    └─────────────────────────────────┘    │
+│  ┌─────────────────────────┐    ┌───────────────────────────────┐  │
+│  │   Google Sheets API     │    │     Google People API         │  │
+│  │   - Read headers (A1:U1)│    │     - Search by phone         │  │
+│  │   - Search column M     │    │     - Create contact          │  │
+│  │   - Insert/Update rows  │    │     - Duplicate prevention    │  │
+│  └─────────────────────────┘    └───────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -108,319 +119,433 @@ This Chrome extension provides a CRM (Customer Relationship Management) overlay 
 Entry and urgent indicator V7/
 ├── manifest.json          # Chrome Extension manifest (v3)
 ├── config.js              # Centralized configuration settings
-├── background.js          # Service worker for API calls
-├── phone_extractor.js     # Phone number extraction utilities
-├── content.js             # WhatsApp Web DOM manipulation & UI
-├── panel.html             # CRM panel UI structure
+├── background.js          # Service worker (auth + API calls)
+├── content.js             # WhatsApp Web UI injection
+├── panel.html             # CRM panel HTML structure
 ├── panel.js               # Panel logic and form handling
-├── style.css              # Styling for all components
+├── formatters.js          # Reusable formatting functions
+├── style.css              # All component styling
 ├── README.md              # This documentation
+├── docs/
+│   └── setup-for-opera.md # Opera browser setup guide
 └── icons/
-    ├── icon16.png         # 16x16 extension icon
-    ├── icon32.png         # 32x32 extension icon
-    ├── icon48.png         # 48x48 extension icon
-    └── icon128.png        # 128x128 extension icon
+    ├── icon16.png
+    ├── icon32.png
+    ├── icon48.png
+    └── icon128.png
 ```
+
+---
+
+## 🔐 Authentication Flow
+
+The extension uses **OAuth 2.0 Authorization Code Flow with PKCE** for secure, long-lasting authentication.
+
+### Flow Diagram
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    AUTHENTICATION FLOW                            │
+└──────────────────────────────────────────────────────────────────┘
+
+First Time Login:
+┌─────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────┐
+│  User   │───▶│ Google OAuth │───▶│ Auth Code   │───▶│ Tokens   │
+│ Action  │    │   Consent    │    │ + PKCE      │    │ Stored   │
+└─────────┘    └──────────────┘    └─────────────┘    └──────────┘
+                                                            │
+                                          ┌─────────────────┘
+                                          ▼
+                              ┌───────────────────────┐
+                              │ chrome.storage.local  │
+                              │ ├── accessToken       │
+                              │ ├── tokenExpiry       │
+                              │ └── refreshToken      │
+                              └───────────────────────┘
+
+Subsequent Uses:
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│ Check Token │────▶│ Token Valid?     │─Yes─▶│ Use Token      │
+│ in Storage  │     │ (expiry check)   │     │ (No popup!)    │
+└─────────────┘     └──────────────────┘     └─────────────────┘
+                            │ No
+                            ▼
+                    ┌──────────────────┐     ┌─────────────────┐
+                    │ Refresh Token    │─OK─▶│ New Access Token│
+                    │ (Silent, no UI)  │     │ (No popup!)     │
+                    └──────────────────┘     └─────────────────┘
+                            │ Failed
+                            ▼
+                    ┌──────────────────┐
+                    │ Full OAuth Login │
+                    │ (Only if revoked)│
+                    └──────────────────┘
+```
+
+### Token Lifecycle
+
+| Token Type    | Lifetime  | Storage                | Renewal                  |
+| ------------- | --------- | ---------------------- | ------------------------ |
+| Access Token  | 1 hour    | `chrome.storage.local` | Silent via refresh token |
+| Refresh Token | ~6 months | `chrome.storage.local` | Only on revocation       |
+
+### PKCE Security
+
+The extension uses **Proof Key for Code Exchange (PKCE)** which:
+
+- Generates a random `code_verifier` (64 characters)
+- Creates SHA-256 hash as `code_challenge`
+- No client secret required (safe for extensions)
+- Prevents authorization code interception attacks
 
 ---
 
 ## 🔧 Component Details
 
-### manifest.json
-
-The extension configuration file defining:
-
-- **Manifest Version:** 3 (latest Chrome extension standard)
-- **Permissions:** `identity`, `storage`, `scripting`, `tabs`
-- **Host Permissions:** Google Sheets API, Google People API, WhatsApp Web
-- **OAuth2 Configuration:** Google API client credentials
-- **Content Scripts:** `phone_extractor.js` and `content.js` injected into `web.whatsapp.com`
-
 ### config.js
 
-Centralized configuration file containing all customizable settings:
+Centralized configuration for easy customization:
 
-````javascript
+```javascript
 const CONFIG = {
-    // Google Sheets settings
-    SPREADSHEET_ID: '168bFU_WQPy50q4QeAq3vpSUt6Q2OCuBrvGZjFQ3uL3A',
+    // Google Sheets
+    SPREADSHEET_ID: 'your-spreadsheet-id',
     SHEET_NAME: '🔵Team Blue🔵',
     FOLLOWUP_SHEET_NAME: 'Delivery_Followups',
 
-    // Form configuration
+    // OAuth
+    OAUTH_CLIENT_ID: 'your-client-id.apps.googleusercontent.com',
+    OAUTH_CLIENT_SECRET: 'your-client-secret',
+
+    // Form Settings
+    PHONE_NUMBER_FIELD_ID: 'custom-phone-number',  // Custom phone field
     MANDATORY_COLUMN_INDICES: [3, 5, 6, 7, 9, 11, 14, 16],
     EXCLUDED_COLUMNS: [8, 10, 12, 13, 15, 17],
-  Configuration:** Uses `CONFIG` from `config.js` via `importScripts()`.
+    VALIDATION_COLUMNS: [7, 9],  // Double-entry fields
 
-### phone_extractor.js
+    // Dropdown Options
+    DROPDOWN_OPTIONS: {
+        5: ['ওয়েলকাম টিউন', 'মাইকিং', 'ভিডিও বিজ্ঞাপন'],
+        6: ['ফিমেল-ডিফল্ট', 'পুরুষ-ডিফল্ট', ...],
+        // ...
+    },
 
-Dedicated module for phone number extraction from WhatsApp Web DOM:
+    // Auto-populated Columns
+    AUTO_COLUMNS: {
+        STATUS: 0,          // Column A
+        TIMESTAMP: 1,       // Column B
+        CONTACT_INFO: 12,   // Column M (শর্ট নাম + 3 spaces + phone)
+    }
+};
+```
 
-**Extraction Strategies (in priority order):**
+### formatters.js
 
-| Strategy | Description |
-|----------|-------------|
-| `_extractFromLeftPaneSelected()` | Selected chat in left sidebar |
-| `_extractFromDataAttrs()` | Data attributes (`data-id`, `data-jid`, etc.) |
-| `_extractFromHeaderTel()` | `tel:` links in conversation header |
-| `_extractFromHeaderAria()` | Aria-label attributes |
-| `_extractFromUrl()` | URL parameters and hash |
-| `_extractFromInfoDrawer()` | Contact info drawer (opens if needed) |
-| `_extractFromDrawerCopyableSpan()` | Copyable text spans in drawer |
+Reusable formatting functions with English month names:
 
-**Helper Functions:**
-- `_sleep(ms)` - Promise-based delay
-- `_onlyDigits(s)` - Extract only digits from string
-- `_hasMinLen(s, len)` - Validate minimum phone length
-- `_isVisible(el)` - Check if element is visible in DOM
-- `_hasLidContext()` - Detect business (LID) accounts
+```javascript
+FORMATTERS = {
+    formatDateTime(dateStr)  // "22/11/2025 19:56" → "22 November 2025, 07:56 PM"
+    formatDate(dateStr)      // "19-1-2026" → "19 January 2026"
+    formatMoney(value)       // "500" → "500 টাকা"
+    normalizePhone(phone)    // "+880 1712-345678" → "8801712345678"
+    getCurrentTimestamp()    // Returns "DD/MM/YYYY HH:MM:SS"
+}
 
-**Main Function:** `extractPhoneNumber()` - Smart aggregator that tries all strategies with fallbacks.
+// English month names array
+const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+];
+```
+
+### background.js
+
+Service worker handling:
+
+- OAuth 2.0 with PKCE and refresh tokens
+- Google Sheets API (read headers, search, insert, update)
+- Google People API (search and create contacts)
+- Token caching and silent refresh
+
+Key functions:
+
+- `generateCodeChallenge()` - PKCE code challenge generation
+- `getTokensViaAuthCodeFlow()` - Full OAuth with `access_type=offline`
+- `refreshAccessToken()` - Silent token refresh
+- `storeTokens()` / `getStoredTokens()` - Persistent storage
+- `getAuthToken()` - Main auth helper (cached → refresh → login)
+
+### panel.js
+
+Form handling:
+
+- Manual phone search with last 6 digits matching
+- Multiple records viewer with formatted data
+- Form rendering with validation
+- Enter key navigation between fields
+- Toast notifications for success/error
+- Auto-opens dropdowns on Enter
 
 ### content.js
 
-Injects the CRM interface into WhatsApp Web:
+WhatsApp Web integration:
 
-**Features:**
-
-- Creates floating button and draggable CRM panel
-- Calls `extractPhoneNumber()` from phone_extractor.js
-- MutationObserver for chat change detection
-- Hash change listener for URL updates
-- postMessage communication with iframe
-- Position persistence via chrome.storage
-
-### panel.html
-
-Simple HTML structure for the CRM form:
-
-- Urgency container (note input + button)
-- Status display area
-- Dynamic data container (form fields)
-- Footer with submit button
-- Loads `config.js` for configuration access
-
-### panel.js
-
-Handles form rendering and data submission:
-
-**Configuration:** Uses `CONFIG` object from `config.js`:
-
-```javascript
-const mandatoryColumnIndices = CONFIG.MANDATORY_COLUMN_INDICES;
-const excludedColumns = CONFIG.EXCLUDED_COLUMNS;
-const dropdownOptions = CONFIG.DROPDOWN_OPTIONS postMessage communication with iframe
-
-### panel.html
-
-Simple HTML structure for the CRM form:
-
-- Urgency container (note input + button)
-- Status display area
-- Dynamic data container (form fields)
-- Footer with submit button
-
-### panel.js
-
-Handles form rendering and data submission:
-
-**Column Configuration:**
-
-```javascript
-const mandatoryColumnIndices = [3, 5, 6, 7, 9, 11, 14, 16];  // Required fields
-const excludedColumns = [8, 10, 12, 13, 15, 17];              // Hidden columns
-const dropdownOptions = {
-    5: ['ওয়েলকাম টিউন', 'মাইকিং', 'ভিডিও বিজ্ঞাপন'],
-    6: ['ফিমেল-ডিফল্ট', 'পুরুষ-ডিফল্ট', ...],
-    11: ['ইয়াম 🔴November 25', ...],
-    14: ['বিকাশ 1- (801)', 'নগ‌দ 1- (801)', ...]
-};
-````
-
-**Validation Features:**
-
-- Double-entry confirmation for columns 7 and 9 (address fields)
-- Mandatory field highlighting
-- Form pre-population with existing data
-
-### style.css
-
-Complete styling for:
-
-- Floating action button (WhatsApp-themed)
-- Draggable CRM container
-- Form fields and dropdowns
-- Validation indicators
-- Urgency button styling
-- Dark theme matching WhatsApp Web
+- Injects floating 🍓 button
+- Creates draggable/resizable CRM container
+- Loads panel.html in iframe
+- Handles drag and resize events
+- Saves panel position to storage
 
 ---
 
 ## 🔄 Data Flow
 
-### Opening the Panel
+### Search Flow
 
 ```
-User clicks floating button
+User enters phone number → Click Search
         │
         ▼
-content.js: togglePanel()
+panel.js: searchPhoneNumber()
         │
         ▼
-content.js: extractPhoneNumber() ──▶ Tries multiple extraction strategies
+background.js: fetchContactData
+        │
+        ├── Fetch Column M (রেফারেন্স)
+        │
+        ├── Find ALL rows where last 6 digits match
+        │
+        └── Fetch full row data for each match
         │
         ▼
-chrome.storage.local.set({ activePhoneNumber: number })
+panel.js: showExistingRecordsViewer(records)
         │
         ▼
-panel.html loads in iframe
-        │
-        ▼
-panel.js: Requests headers + contact data
-        │
-        ▼
-background.js: Fetches from Google Sheets API
-        │
-        ▼
-panel.js: Renders form with data
+Display formatted records with:
+  - Timestamps → "22 November 2025, 07:56 PM"
+  - Money fields → "500 টাকা"
+  - All matching records shown
 ```
 
-### Submitting Entry
+### New Entry Flow
 
 ```
-User fills form and clicks "Submit New Entry"
+User fills form → Click "Submit New Entry"
         │
         ▼
-panel.js: handleSubmit() ──▶ Validates mandatory fields
+panel.js: handleSubmit()
+        │
+        ├── Validate mandatory fields (including phone number)
+        ├── Build row data array
+        └── Auto-populate: Status, Timestamp, Contact Info
+            (CONTACT_INFO = শর্ট নাম + 3 spaces + phone)
         │
         ▼
-chrome.runtime.sendMessage({ action: 'saveNewEntry', data: [...] })
+background.js: saveNewEntry
+        │
+        ├── Find last row with data in Column D
+        ├── Insert at lastDataRow + 1 (not sheet end!)
+        └── Return inserted row number
         │
         ▼
-background.js: Appends row to Google Sheet
+panel.js: showToast("✔️ Entry saved at row X!")
         │
         ▼
-background.js: Creates Google Contact (if name provided)
-        │
-        ▼
-panel.js: Shows success, closes panel
+background.js: createGoogleContact (async)
 ```
 
 ---
 
-## 📊 Google Sheets Integration
+## 📥 Installation
 
-### Main Sheet Structure (`🔵Team Blue🔵`)
+### For Chrome
 
-| Column | Index | Purpose                                          |
-| ------ | ----- | ------------------------------------------------ |
-| A      | 0     | Status (auto-populated)                          |
-| B      | 1     | Timestamp (auto-generated: DD/MM/YYYY HH:MM:SS)  |
-| C      | 2     | (System use)                                     |
-| D      | 3     | Customer Name _(mandatory)_                      |
-| E      | 4     | (Excluded)                                       |
-| F      | 5     | Service Type _(dropdown, mandatory)_             |
-| G      | 6     | Voice/Artist _(dropdown, mandatory)_             |
-| H      | 7     | Address 1 _(double-entry validation, mandatory)_ |
-| I      | 8     | (Excluded)                                       |
-| J      | 9     | Address 2 _(double-entry validation, mandatory)_ |
-| K      | 10    | (Excluded)                                       |
-| L      | 11    | Assigned To _(dropdown, mandatory)_              |
-| M      | 12    | Contact Info (auto: Name + Phone)                |
-| N      | 13    | (Phone - used for lookup)                        |
-| O      | 14    | Payment Method _(dropdown, mandatory)_           |
-| P      | 15    | (Excluded)                                       |
-| Q      | 16    | _(mandatory)_                                    |
-| R      | 17    | (Excluded)                                       |
-| S      | 18    | Urgency Flag ("urgent" if set)                   |
-| T      | 19    | Urgency Note                                     |
-| U      | 20    | (Last column read)                               |
+1. Download/clone this extension folder
+2. Open `chrome://extensions/`
+3. Enable "Developer mode" (top right)
+4. Click "Load unpacked"
+5. Select the extension folder
+6. Pin the extension for easy access
 
-### Follow-up Sheet (`Delivery_Followups`)
+### For Opera
 
-| Column | Content                              |
-| ------ | ------------------------------------ |
-| A      | (Empty)                              |
-| B      | Phone Number                         |
-| C      | Greeting (আসসালামু আলাইকুম...)       |
-| D      | Timestamp (ISO format)               |
-| E      | Status ("Pending")                   |
-| F      | Note (সেলসে নক দিচ্ছেন; + user note) |
+1. Open `opera://extensions/`
+2. Enable "Developer mode"
+3. Click "Load unpacked"
+4. Select the extension folder
+5. See `docs/setup-for-opera.md` for OAuth setup
 
----
+### For Edge
 
-## 🔧 Installation
-
-1. **Clone/Download** the extension folder
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable **Developer mode** (toggle in top-right)
-4. Click **Load unpacked** and select the extension folder
-5. Navigate to `web.whatsapp.com` and log in
-6. Click the floating CRM button to authenticate with Google
+1. Open `edge://extensions/`
+2. Enable "Developer mode"
+3. Click "Load unpacked"
+4. Select the extension folder
 
 ---
 
 ## ⚙️ Configuration
 
-To customize for your use case, modify these in `background.js`:
+### Google Cloud Console Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Enable APIs:
+   - Google Sheets API
+   - Google People API
+4. Create OAuth Credentials:
+   - Type: **Web Application**
+   - Authorized redirect URI: `https://<extension-id>.chromiumapp.org/`
+5. Copy Client ID to `config.js`
+
+### Spreadsheet Setup
+
+1. Create a Google Sheet with headers in row 1
+2. Copy the Spreadsheet ID from the URL
+3. Update `CONFIG.SPREADSHEET_ID` in `config.js`
+4. Update `CONFIG.SHEET_NAME` to match your sheet tab name
+
+### Column Configuration
+
+Update in `config.js`:
 
 ```javascript
-const SPREADSHEET_ID = "your-spreadsheet-id";
-const SHEET_NAME = "Your Sheet Name";
-const PHONE_COLUMN_RANGE = `'${SHEET_NAME}'!M:M`; // Column containing phone numbers
-```
+// Which columns are mandatory (0-indexed)
+MANDATORY_COLUMN_INDICES: [3, 5, 6, 7, 9, 11, 14, 16],
 
-Update `manifest.json` with your OAuth2 client ID:
+// Which columns to exclude from the form
+EXCLUDED_COLUMNS: [8, 10, 12, 13, 15, 17],
 
-```json
-"oauth2": {
-    "client_id": "your-client-id.apps.googleusercontent.com",
-    "scopes": [...]
-}
+// Phone search column (Column M = index 12)
+PHONE_COLUMN_INDEX: 12,
 ```
 
 ---
 
-## 🔐 Permissions
+## 📖 Usage Guide
 
-| Permission              | Purpose                           |
-| ----------------------- | --------------------------------- |
-| `identity`              | Google OAuth2 authentication      |
-| `storage`               | Store panel position, cached data |
-| `scripting`             | Inject content scripts            |
-| `tabs`                  | Access active tab for messaging   |
-| `sheets.googleapis.com` | Read/write Google Sheets          |
-| `people.googleapis.com` | Create Google Contacts            |
-| `web.whatsapp.com`      | Content script injection          |
+### 1. Open the CRM Panel
 
----
+- Click the 🍓 floating button on WhatsApp Web
+- The CRM panel appears on the right side
+- Drag the header to reposition, use corner to resize
 
-## 🇧🇩 Language Support
+### 2. Search for a Contact
 
-The extension is designed for **Bengali (Bangla)** users with:
+- Enter phone number in the search box
+- Click "🔍 Search" or press Enter
+- Results show all records with matching last 6 digits
 
-- Bengali dropdown options
-- Bengali placeholder text
-- Bengali greeting messages in follow-ups
+### 3. View Existing Records
 
----
+- All matching records display in scrollable cards
+- Each card shows row number from the sheet
+- Timestamps formatted as "22 November 2025, 07:56 PM"
+- Money fields show "টাকা" (Taka) suffix
 
-## 📝 License
+### 4. Create New Entry
 
-This project is proprietary software developed for AdExpress customer management.
+- Form is shown on panel open (or after search returns no results)
+- Fill mandatory fields including:
+  - শর্ট নাম (name)
+  - ফোন নাম্বার (phone number - required in form)
+  - Other mandatory fields marked with indicator
+- Press Enter to move between fields
+- Dropdowns auto-open when focused via Enter
+- Click "Submit New Entry"
+- রেফারেন্স (Column M) is auto-populated as: শর্ট নাম + 3 spaces + phone
+- Toast shows success with row number
+
+### 5. Keyboard Shortcuts
+
+| Key    | Action                                             |
+| ------ | -------------------------------------------------- |
+| Enter  | Move to next field / Open dropdown / Submit search |
+| Tab    | Move to next field                                 |
+| Escape | Close panel                                        |
 
 ---
 
 ## 🔧 Troubleshooting
 
-| Issue                | Solution                                                    |
-| -------------------- | ----------------------------------------------------------- |
-| Panel doesn't open   | Refresh WhatsApp Web, check if `#app` element exists        |
-| Phone not detected   | Try opening the contact info drawer manually                |
-| Authentication fails | Check OAuth2 client configuration, re-authenticate          |
-| Data not saving      | Verify spreadsheet ID and sheet name, check API permissions |
-| Position not saved   | Clear extension storage and retry                           |
+### "OAuth Error" on first use
+
+1. Check `OAUTH_CLIENT_ID` in `config.js`
+2. Verify redirect URI in Google Cloud Console matches:
+   - `https://<extension-id>.chromiumapp.org/`
+3. Get extension ID from `chrome://extensions`
+
+### Entries going to wrong row
+
+- Fixed in v7.2! Now inserts after last row with data in Column D
+- Ignores empty rows that only have dropdown formatting
+
+### Repeated login prompts
+
+- Fixed in v7.2! Refresh tokens now stored persistently
+- Silent refresh without user interaction
+- Only re-login if token revoked by user
+
+### Search not finding records
+
+- Check that Column M contains the phone number data
+- Search uses last 6 digits matching
+- Console logs show all matching rows
+
+### Extension not loading on WhatsApp
+
+1. Refresh WhatsApp Web page
+2. Check console for errors (F12 → Console)
+3. Verify manifest.json has correct host permissions
 
 ---
 
-_Last updated: January 2026_
+## 📄 Permissions Explained
+
+| Permission  | Purpose                              |
+| ----------- | ------------------------------------ |
+| `identity`  | OAuth 2.0 authentication with Google |
+| `storage`   | Store tokens and panel position      |
+| `scripting` | Inject CRM UI into WhatsApp Web      |
+| `tabs`      | Detect active WhatsApp tab           |
+
+### Host Permissions
+
+- `https://web.whatsapp.com/*` - Inject CRM panel
+- `https://sheets.googleapis.com/*` - Sheets API
+- `https://people.googleapis.com/*` - Contacts API
+- `https://accounts.google.com/*` - OAuth
+- `https://oauth2.googleapis.com/*` - Token exchange
+
+---
+
+## 📝 Changelog
+
+### v7.2 (January 2026)
+
+- Added OAuth with PKCE and refresh tokens
+- Added multiple records viewer
+- Added `formatters.js` with English month names
+- Fixed row insertion (inserts at correct position)
+- Added toast notifications
+- Added Enter key navigation
+- Removed 4-digit field restriction
+
+### v7.0
+
+- Initial release with Google Sheets integration
+- Phone number extraction from WhatsApp
+- Google Contacts sync
+
+---
+
+## 📄 License
+
+This project is proprietary software for AdExpress internal use.
+
+---
+
+## 🤝 Support
+
+For issues or feature requests, contact the development team.

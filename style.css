@@ -27,7 +27,7 @@
 /* --- NEW: Main Draggable Container --- */
 #crm-container {
   position: fixed;
-  width: 420px;
+  width: 430px;
   min-width: 320px;
   max-width: 600px;
   height: 96vh;
@@ -252,6 +252,33 @@ body {
   padding: 15px;
 }
 
+/* --- Record Card (for multiple records) --- */
+.record-card {
+  margin-bottom: 15px;
+  border: 1px solid #3a3f42;
+  border-radius: 8px;
+  background-color: #111b21;
+  overflow: hidden;
+}
+
+.record-header {
+  background-color: #00a884;
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.record-header small {
+  font-weight: normal;
+  opacity: 0.8;
+  margin-left: 8px;
+}
+
+.record-card .viewer-details {
+  padding: 12px;
+}
+
 .viewer-details {
   display: flex;
   flex-direction: column;
@@ -380,4 +407,41 @@ body {
   background-color: #3a3f42;
   color: #8d9499;
   cursor: not-allowed;
+}
+
+/* --- Toast Notification --- */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+}
+
+.toast.success {
+  background-color: #00a884;
+  color: #fff;
+}
+
+.toast.error {
+  background-color: #e74c3c;
+  color: #fff;
+}
+
+/* --- 4-digit input restriction --- */
+.four-digit-input {
+  text-align: center;
+  letter-spacing: 2px;
+  font-weight: 600;
 }

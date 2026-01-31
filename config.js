@@ -13,10 +13,14 @@ const CONFIG = {
     // Add authorized redirect URI: https://<your-extension-id>.chromiumapp.org/
     // Get your extension ID from opera://extensions (after loading unpacked)
     OAUTH_CLIENT_ID: '851591119047-t3tbtno5v1498bbmvnubui852sj0kr5c.apps.googleusercontent.com',
+    
+    // Client Secret from Google Cloud Console (required for Web Application type)
+    // Go to: APIs & Services > Credentials > Your OAuth Client > Client Secret
+    OAUTH_CLIENT_SECRET: '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',  // ← Replace with your actual client secret
 
     // Column ranges
     get PHONE_COLUMN_RANGE() {
-        return `'${this.SHEET_NAME}'!M:M`;
+        return `'${this.SHEET_NAME}'!M:M`;  // Column M (রেফারেন্স) contains name + phone
     },
 
     get HEADERS_RANGE() {
@@ -24,7 +28,11 @@ const CONFIG = {
     },
 
     // === Form Configuration ===
+    // Custom phone number field (virtual field, not a sheet column)
+    PHONE_NUMBER_FIELD_ID: 'custom-phone-number',
+    
     // Columns that must be filled before submission (0-indexed)
+    // Note: 3 is শর্ট নাম, and we also require the custom phone field
     MANDATORY_COLUMN_INDICES: [3, 5, 6, 7, 9, 11, 14, 16],
 
     // Columns that should not be displayed in the form (0-indexed)

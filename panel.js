@@ -21,13 +21,54 @@ document.addEventListener('DOMContentLoaded', () => {
     let isUrgent = false;
     let headersLoaded = false;
 
-    // --- FUNCTIONS ---
-    function getFormattedTimestamp() {
-        const now = new Date();
-        const pad = (num) => num.toString().padStart(2, '0');
-        const date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
-        const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-        return `${date} ${time}`;
+    // Column indices for special formatting (0-indexed)
+    const TIMESTAMP_COLUMNS = [1];    // Column B (Timestamp with time)
+    const DATE_COLUMNS = [15];         // Column P (Last Modified - date only)
+    const MONEY_COLUMNS = [7, 9];     // Column H (এডভান্স), Column J (টোটাল বাজেট)
+    const FOUR_DIGIT_COLUMN = 16;     // Column Q (Last 4 digit / trans id)
+
+    // --- TOAST NOTIFICATION ---
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast ' + type + ' show';
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // --- ENTER KEY NAVIGATION ---
+    function attachEnterKeyNavigation() {
+        const inputs = dataContainer.querySelectorAll('input, select');
+        inputs.forEach((input, index) => {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const nextInput = inputs[index + 1];
+                    if (nextInput) {
+                        nextInput.focus();
+                        // If next field is a dropdown, open it
+                        if (nextInput.tagName === 'SELECT') {
+                            // Simulate click to open dropdown
+                            nextInput.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                            // Alternative: use showPicker() if available (modern browsers)
+                            if (typeof nextInput.showPicker === 'function') {
+                                try { nextInput.showPicker(); } catch (e) { /* ignore */ }
+                            }
+                        }
+                    } else {
+                        // Last field - focus submit button
+                        submitBtn.focus();
+                    }
+                }
+            });
+        });
+    }
+
+    // --- TRANSACTION ID FIELD (no restrictions) ---
+    function attachTransactionIdField() {
+        // Column Q accepts any value (4 digits, phone number, hex transaction ID, etc.)
+        // No validation needed
     }
 
     function renderForm(data = []) {
@@ -75,25 +116,62 @@ document.addEventListener('DOMContentLoaded', () => {
                     headerHTML += ' <small class="mandatory-indicator">Mandatory</small>';
                 }
                 detailsHTML += `<div class="detail-item" data-column-index="${index}">${headerHTML}${itemHTML}</div>`;
+                
+                // Add custom phone number field after শর্ট নাম (index 3)
+                if (index === 3) {
+                    detailsHTML += `<div class="detail-item" data-column-index="phone-number">`;
+                    detailsHTML += `<strong>ফোন নাম্বার</strong> <small class="mandatory-indicator">Mandatory</small>`;
+                    detailsHTML += `<input type="text" id="${CONFIG.PHONE_NUMBER_FIELD_ID}" placeholder="Enter phone number...">`;
+                    detailsHTML += `</div>`;
+                }
             }
         });
         detailsHTML += '</div>';
         dataContainer.innerHTML = detailsHTML;
         attachValidationListeners();
+        attachEnterKeyNavigation();
+        attachTransactionIdField();
         footerContainer.style.display = 'block';
     }
 
-    function showExistingRecordsViewer(data) {
+    function showExistingRecordsViewer(records, searchedPhone) {
         const recordsViewer = document.getElementById('records-viewer');
         const viewerContent = document.getElementById('viewer-content');
         
-        let viewerHTML = '<div class="viewer-details">';
-        sheetHeaders.forEach((header, index) => {
-            if (data[index] && index !== 18 && index !== 19) { // Skip urgency columns
-                viewerHTML += `<div class="viewer-item"><strong>${header}:</strong><span>${data[index]}</span></div>`;
-            }
+        console.log('[Panel] Displaying', records.length, 'records in viewer');
+        
+        let viewerHTML = '';
+        records.forEach((record, recordIndex) => {
+            const data = record.data;
+            const rowIndex = record.rowIndex;
+            
+            console.log(`[Panel] Record ${recordIndex + 1} (Row ${rowIndex}):`, data);
+            
+            viewerHTML += `<div class="record-card">`;
+            viewerHTML += `<div class="record-header">📋 Record ${recordIndex + 1} <small>(Row ${rowIndex})</small></div>`;
+            viewerHTML += '<div class="viewer-details">';
+            sheetHeaders.forEach((header, index) => {
+                if (data[index] && index !== 18 && index !== 19) { // Skip urgency columns
+                    let displayValue = data[index];
+                    
+                    // Format timestamp columns (with time)
+                    if (TIMESTAMP_COLUMNS.includes(index)) {
+                        displayValue = FORMATTERS.formatDateTime(displayValue);
+                    }
+                    // Format date columns (date only, no time)
+                    else if (DATE_COLUMNS.includes(index)) {
+                        displayValue = FORMATTERS.formatDate(displayValue);
+                    }
+                    // Format money columns with Bengali taka
+                    else if (MONEY_COLUMNS.includes(index)) {
+                        displayValue = FORMATTERS.formatMoney(displayValue);
+                    }
+                    
+                    viewerHTML += `<div class="viewer-item"><strong>${header}:</strong><span>${displayValue}</span></div>`;
+                }
+            });
+            viewerHTML += '</div></div>';
         });
-        viewerHTML += '</div>';
         
         viewerContent.innerHTML = viewerHTML;
         recordsViewer.style.display = 'block';
@@ -178,67 +256,97 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function handleSubmit() {
-        // --- NEW: Loop through all mandatory fields to validate them ---
+        // --- Validate mandatory fields ---
         for (const index of mandatoryColumnIndices) {
             const input = document.getElementById(`field-${index}`);
             if (input && input.value.trim() === '') {
                 const headerName = sheetHeaders[index] || 'a required field';
-                alert(`Please fill out the "${headerName}" field.`);
+                showToast(`Please fill out "${headerName}"`, 'error');
                 input.style.borderColor = 'tomato';
                 input.focus();
-                return; // Stop submission if a mandatory field is empty
+                return;
             }
         }
+        
+        // Validate custom phone number field
+        const phoneNumberInput = document.getElementById(CONFIG.PHONE_NUMBER_FIELD_ID);
+        if (!phoneNumberInput || phoneNumberInput.value.trim() === '') {
+            showToast('Please fill out "ফোন নাম্বার"', 'error');
+            if (phoneNumberInput) {
+                phoneNumberInput.style.borderColor = 'tomato';
+                phoneNumberInput.focus();
+            }
+            return;
+        }
 
-        // Reset border colors for any mandatory fields that might have been highlighted
+        // Reset border colors
         mandatoryColumnIndices.forEach(index => {
             const input = document.getElementById(`field-${index}`);
             if (input) input.style.borderColor = '#3a3f42';
         });
+        if (phoneNumberInput) phoneNumberInput.style.borderColor = '#3a3f42';
 
         submitBtn.disabled = true;
         submitBtn.textContent = 'Submitting...';
 
         if (document.querySelectorAll('.validation-wrapper[data-validated="false"]').length > 0) {
-            alert('Please correct the entries that did not match.');
+            showToast('Please correct the entries that did not match', 'error');
             submitBtn.disabled = false;
             submitBtn.textContent = 'Submit New Entry';
             return;
         }
         const newRowData = Array(sheetHeaders.length).fill('');
+        console.log('[Panel] Building new row data. Headers count:', sheetHeaders.length);
+        
         sheetHeaders.forEach((_, index) => {
             if (CONFIG.VALIDATION_COLUMNS.includes(index)) {
-                newRowData[index] = document.getElementById(`field-${index}-a`).value;
+                const validationInput = document.getElementById(`field-${index}-a`);
+                newRowData[index] = validationInput ? validationInput.value : '';
             } else {
                 const input = document.getElementById(`field-${index}`);
                 if (input) newRowData[index] = input.value;
                 else if (currentData && currentData[index]) newRowData[index] = currentData[index];
             }
         });
+        
         newRowData[CONFIG.AUTO_COLUMNS.STATUS] = '';
-        newRowData[CONFIG.AUTO_COLUMNS.TIMESTAMP] = getFormattedTimestamp();
-        const contactName = document.getElementById('field-3').value; // Get the name from Column D (index 3)
-        newRowData[CONFIG.AUTO_COLUMNS.CONTACT_INFO] = `${contactName} ${currentPhoneNumber}`;
-        newRowData[CONFIG.AUTO_COLUMNS.PHONE] = currentPhoneNumber; // Auto-populate phone column
+        newRowData[CONFIG.AUTO_COLUMNS.TIMESTAMP] = FORMATTERS.getCurrentTimestamp();
+        const contactName = document.getElementById('field-3') ? document.getElementById('field-3').value : '';
+        const phoneNumberFromField = phoneNumberInput.value.trim();
+        newRowData[CONFIG.AUTO_COLUMNS.CONTACT_INFO] = `${contactName}   ${phoneNumberFromField}`;
+        // Column N (PHONE) is left empty - handled by post API call
+        
+        console.log('[Panel] Auto-populated columns:');
+        console.log('  - STATUS (col', CONFIG.AUTO_COLUMNS.STATUS, '):', newRowData[CONFIG.AUTO_COLUMNS.STATUS]);
+        console.log('  - TIMESTAMP (col', CONFIG.AUTO_COLUMNS.TIMESTAMP, '):', newRowData[CONFIG.AUTO_COLUMNS.TIMESTAMP]);
+        console.log('  - CONTACT_INFO (col', CONFIG.AUTO_COLUMNS.CONTACT_INFO, '):', newRowData[CONFIG.AUTO_COLUMNS.CONTACT_INFO]);
+        
         // If the urgency button was clicked, add the urgency data.
         if (isUrgent) {
             newRowData[CONFIG.AUTO_COLUMNS.URGENCY_FLAG] = "urgent";
             newRowData[CONFIG.AUTO_COLUMNS.URGENCY_NOTE] = document.getElementById('urgency-note').value;
         }
+        
+        console.log('[Panel] Full row data to submit:', newRowData);
+        console.log('[Panel] Row data length:', newRowData.length);
+        
         // Replace the old try...catch block with this one
         try {
-            // OLD: const action = currentRowIndex ? 'updateExistingEntry' : 'saveNewEntry';
-            // NEW: Force the action to always save a new entry
+            // Force the action to always save a new entry
             const action = 'saveNewEntry';
 
             const response = await chrome.runtime.sendMessage({ action: action, data: newRowData, rowIndex: currentRowIndex });
             if (response && response.success) {
                 submitBtn.textContent = 'Success!';
-                // --- NEW: Send data to create a Google Contact ---
-                const contactName = document.getElementById('field-3').value; // Get name from Column D (index 3)
-                const contactNumber = currentPhoneNumber; // This already holds the full number
+                submitBtn.style.backgroundColor = '#00a884';
+                
+                const rowInfo = response.insertedRow ? ` at row ${response.insertedRow}` : '';
+                showToast(`✔️ Entry saved successfully${rowInfo}!`, 'success');
+                
+                // --- Send data to create a Google Contact ---
+                const contactName = document.getElementById('field-3') ? document.getElementById('field-3').value : '';
+                const contactNumber = currentPhoneNumber;
 
-                // Only proceed if a name was entered
                 if (contactName.trim() && contactNumber) {
                     chrome.runtime.sendMessage({
                         action: 'createGoogleContact',
@@ -247,16 +355,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             phone: contactNumber
                         }
                     });
-                    // This is a "fire-and-forget" request, we don't need to wait for a response.
                 }
 
                 setTimeout(() => {
                     window.parent.postMessage({ action: 'hidePanel' }, '*');
-                }, 1000);
+                }, 1500);
             } else {
                 throw new Error(response.message || 'Failed to save data.');
             }
         } catch (error) {
+            showToast(`❌ Error: ${error.message}`, 'error');
             statusDiv.textContent = `Error: ${error.message}`;
             statusDiv.classList.remove('notification-success');
             submitBtn.disabled = false;
@@ -326,13 +434,18 @@ document.addEventListener('DOMContentLoaded', () => {
             searchBtn.textContent = '🔍 Search';
 
             if (response && response.success) {
-                if (response.exists) {
+                if (response.exists && response.records && response.records.length > 0) {
                     // Found existing records - show in viewer
-                    currentData = response.data;
-                    currentRowIndex = response.rowIndex;
-                    statusDiv.textContent = `✔️ Found ${response.data.length > 0 ? 'existing' : ''} records for this contact.`;
+                    console.log(`[Panel] Found ${response.count} matching record(s)`);
+                    
+                    // Store first record as current (for follow-up functionality)
+                    currentData = response.records[0].data;
+                    currentRowIndex = response.records[0].rowIndex;
+                    
+                    const recordWord = response.count === 1 ? 'record' : 'records';
+                    statusDiv.textContent = `✔️ Found ${response.count} existing ${recordWord} for ${phone}.`;
                     statusDiv.classList.add('notification-success');
-                    showExistingRecordsViewer(response.data);
+                    showExistingRecordsViewer(response.records, phone);
                     urgencyContainer.style.display = 'flex'; // Show urgent button for existing records
                 } else {
                     // No existing records - show empty form
@@ -378,10 +491,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- INITIAL STATE ---
-    statusDiv.textContent = 'Enter a phone number and click Search.';
+    statusDiv.textContent = 'Enter a phone number to search, or fill the form to create new entry.';
     statusDiv.style.display = 'block';
-    dataContainer.style.display = 'none';
-    footerContainer.style.display = 'none';
+
+    // Load headers and show entry form on initial view
+    chrome.runtime.sendMessage({ action: 'getHeadersRequest' }, (headerResponse) => {
+        if (headerResponse && headerResponse.success) {
+            sheetHeaders = headerResponse.data;
+            headersLoaded = true;
+            renderForm(); // Show the form on initial load
+        } else {
+            statusDiv.textContent = `Error loading headers: ${headerResponse.message || 'Unknown error'}`;
+            dataContainer.style.display = 'none';
+            footerContainer.style.display = 'none';
+        }
+    });
 
     // Auto-focus the phone search input
     phoneSearchInput.focus();
